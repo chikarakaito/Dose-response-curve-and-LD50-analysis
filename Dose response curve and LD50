@@ -1,0 +1,90 @@
+# Preparation
+# Create a csv file with the following data: 
+  # strain (strain administered), bacterial_dose (number of bacteria administered), time (time when the survival rate was checked), 
+  # surv (number of living individuals), total (number of total individuals), experimenter, and exp_date
+
+# Analysis Date and Time
+anl_date <- "20250306"
+time_selected <- 24
+
+# packages
+library(MASS)
+library(tidyverse)
+
+# import the data
+import_file <- utils::choose.files()
+(dat <- read_csv(file = import_file))
+
+# Set ggplot theme
+mytheme <- theme_classic(base_size = 10)
+
+# plot data at selected time
+dat %>%
+  filter(time == time_selected) %>%
+  ggplot(aes(x = bacterial_dose, y = surv / total, colour = strain, shape = strain)) + 
+  geom_point() + 
+  scale_x_log10(
+    labels = function(x) {
+      exp_labels <- 10^round(log10(x))
+      ifelse(x == exp_labels, paste("10^", round(log10(x)), sep = ""), "") } ) + 
+  stat_smooth(method = "glm", method.args = list(family = binomial(link = "logit")), 
+              se = F, fullrange = T, aes(colour = strain),
+              linetype = "solid") +
+  scale_colour_manual(values = c("black", "red1", "royalblue1", "orange1", "springgreen1", "purple1")) + 
+  scale_shape_manual(values = rep(16, length(unique(dat$strain)))) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) + 
+  mytheme + 
+  xlab("dose(cfu/frog)") + 
+  ylab("survival rate") + 
+  annotation_logticks(sides = "b")
+
+ggsave( 
+  filename = paste(anl_date, "_", time_selected, "hour.png", sep = ""),
+  width = 4.5,
+  height = 3
+)
+
+
+# a function to apply
+LD50 <- function(x) {
+  fit <- glm(
+    cbind(surv, (total-surv)) ~ bacterial_dose, family =binomial(link="logit"), 
+    data = x
+  )
+  unlist(dose.p(obj = fit, p=0.5)[[1]])
+}
+
+# calculate LD50
+(ld50 <- dat %>% 
+    group_by(time, strain) %>%
+    do(LD50 = as.numeric(LD50(.)))
+)
+ld50$LD50 <- unlist(ld50$LD50, use.names = FALSE)
+ld50
+
+# calcaulate dose range
+dose_range <- dat %>%
+  filter(bacterial_dose > 0) %>%
+  group_by(strain) %>%
+  summarise(
+    max_dose = max(bacterial_dose), 
+    min_dose = min(bacterial_dose)
+  )
+
+# calculate LD50
+(LD50 <- left_join(ld50, dose_range) %>%
+    mutate(LD50 = ifelse((LD50 < min_dose | LD50 > max_dose), NA, LD50)))
+
+# write to csv file
+write_csv(LD50, paste(anl_date, "_LD50.csv"))
+
+# indicate standard error
+bacterial_dose <- c(dat$bacterial_dose)
+surv <- c(dat$surv)
+total <- c(dat$total)
+
+fit <- glm(
+  cbind(surv, (total-surv)) ~ bacterial_dose, family =binomial(link="logit"))
+
+se <- dose.p(obj=fit, p=0.5)
+se
