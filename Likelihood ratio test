@@ -1,0 +1,52 @@
+# Preparation
+# Create a csv file with the following data: 
+  # strain (strain administered), bacterial_dose (number of bacteria administered), time (time when the survival rate was checked), 
+  # surv (number of living individuals), total (number of total individuals), experimenter, and exp_date
+
+# package
+library(tidyverse)
+
+# strain 1 data
+import_file <- utils::choose.files()
+(dat <- read_csv(file = import_file))
+
+data1 <- data.frame(
+  dose = c(dat$bacterial_dose),
+  n = c(dat$total),
+  survival_rate = c(dat$surv/dat$total)
+  )
+
+# strain 2 data
+import_file <- utils::choose.files()
+(dat <- read_csv(file = import_file))
+
+data2 <- data.frame(
+  dose = c(dat$bacterial_dose),
+  n = c(dat$total),
+  survival_rate = c(dat$surv/dat$total)
+  )
+
+# survival rate
+data1 <- data1 %>%
+  mutate(response = survival_rate * n,
+         nonresponse = (1 - survival_rate) * n)
+
+data2 <- data2 %>%
+  mutate(response = survival_rate * n,
+         nonresponse = (1 - survival_rate) * n)
+
+# combine 2 strains data
+data_combined <- rbind(data1, data2)
+data_combined$group <- factor(c(rep(1, nrow(data1)), rep(2, nrow(data2))))
+
+# full model (assume that the LD50 of the two strains are different)
+full_model <- glm(cbind(response, nonresponse) ~ dose + group, 
+                  family = binomial(link="logit"), data = data_combined)
+
+# null model (assume that the LD50 of the two strains are equal)
+null_model <- glm(cbind(response, nonresponse) ~ dose, 
+                  family = binomial(link="logit"), data = data_combined)
+
+# likelihood ratio test
+anova_result <- anova(null_model, full_model, test = "Chisq")
+anova_result
