@@ -1,6 +1,9 @@
 
 # Dose Response Curve and LD50 Analysis
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14978656.svg)](https://doi.org/10.5281/zenodo.14978656)
+
+
 ## Description
 
 This R script generates a dose-response curve based on survival rates at 24 hours after bacterial injection. It also calculates the LD50 (lethal dose for 50% of individuals) and its standard error. In addition, the virulence of the two bacterial strains can be compared by running a likelihood ratio test to determine if the dose-response curves are significantly different.
